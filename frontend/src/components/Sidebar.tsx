@@ -2,11 +2,14 @@ import React from 'react';
 import {
   LayoutDashboard,
   FileCheck2,
-  BugPlay,
+  Radar,
   BookOpenCheck,
   History,
-  Compass,
-  Sparkles
+  Scale,
+  Image as ImageIcon,
+  Users,
+  ShieldCheck,
+  Sparkles,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -23,36 +26,52 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
     },
     {
       id: 'workbench',
-      label: 'Review Workbench',
+      label: 'Preflight Workbench',
       icon: <FileCheck2 className="w-4 h-4" />,
     },
     {
-      id: 'debugger',
-      label: 'Guideline Debugger',
-      icon: <BugPlay className="w-4 h-4 text-teal-400" />,
+      id: 'queue',
+      label: 'Review Queue',
+      icon: <ShieldCheck className="w-4 h-4 text-emerald-400" />,
+    },
+    {
+      id: 'evidence',
+      label: 'Brand Evidence Ledger',
+      icon: <Scale className="w-4 h-4 text-cyan-400" />,
       badge: 'SIGNATURE',
+      badgeColor: 'teal',
+    },
+    {
+      id: 'radar',
+      label: 'Guideline Clarity Radar',
+      icon: <Radar className="w-4 h-4 text-teal-400" />,
+      badge: 'SIGNATURE',
+      badgeColor: 'teal',
     },
     {
       id: 'brand',
-      label: 'Brand Knowledge',
+      label: 'Brand Guidelines',
       icon: <BookOpenCheck className="w-4 h-4" />,
+    },
+    {
+      id: 'assets',
+      label: 'Approved Asset Library',
+      icon: <ImageIcon className="w-4 h-4" />,
+    },
+    {
+      id: 'team',
+      label: 'Team & RBAC',
+      icon: <Users className="w-4 h-4" />,
     },
     {
       id: 'audit',
       label: 'Audit Trail',
       icon: <History className="w-4 h-4" />,
     },
-    {
-      id: 'demo',
-      label: 'Judge Walkthrough',
-      icon: <Compass className="w-4 h-4 text-amber-400" />,
-      badge: '9-STEP DEMO',
-      badgeColor: 'amber',
-    },
   ];
 
   return (
-    <aside className="w-64 bg-navy-950 border-r border-navy-800 flex flex-col justify-between p-4 min-h-[calc(100vh-4rem)]">
+    <aside className="w-64 bg-navy-950 border-r border-navy-800 flex flex-col justify-between p-4 min-h-[calc(100vh-4rem)] shrink-0">
       <div className="space-y-6">
         <div>
           <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-3 mb-2">
@@ -96,13 +115,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentTab, onTabChange }) => 
       </div>
 
       {/* Footer Info Box */}
-      <div className="p-3 bg-navy-900/60 rounded-xl border border-navy-800/80 text-xs">
+      <div className="p-3.5 bg-navy-900/60 rounded-xl border border-navy-800/80 text-xs">
         <div className="flex items-center space-x-2 text-teal-400 font-semibold mb-1">
           <Sparkles className="w-3.5 h-3.5" />
-          <span>Hybrid Engine</span>
+          <span>Proofline Hybrid Engine</span>
         </div>
         <p className="text-slate-400 text-[11px] leading-relaxed">
-          Combines deterministic rules, verified facts, and AI contextual claim checks with explainable sources.
+          Deterministic brand rules, verified evidence ledger citations, and WCAG visual compliance with version-bound approvals.
         </p>
       </div>
     </aside>

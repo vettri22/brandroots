@@ -51,6 +51,7 @@ def evaluate_hypothesis(
             insight_id=insight_id,
             action=req.action,
             notes=req.decision_notes,
+            status_marking=req.status_marking,
             user_name=current_user.full_name,
             user_role=current_user.role
         )

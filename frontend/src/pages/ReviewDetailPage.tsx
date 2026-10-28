@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
-import { ContentDocument, ReviewJob, Finding, ReviewComment, DocumentVersion } from '../types';
+import { ContentDocument, ReviewJob, Finding, ReviewComment, DocumentVersion, ApprovalRecord } from '../types';
 import { FindingCard } from '../components/FindingCard';
 import { Badge } from '../components/Badge';
 import { useAuth } from '../context/AuthContext';
@@ -16,7 +16,11 @@ import {
   Edit,
   Save,
   Clock,
-  Sparkles
+  Sparkles,
+  GitCompare,
+  FileCheck2,
+  Lock,
+  CornerDownRight,
 } from 'lucide-react';
 
 interface ReviewDetailPageProps {
@@ -30,6 +34,7 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
   const [job, setJob] = useState<ReviewJob | null>(null);
   const [comments, setComments] = useState<ReviewComment[]>([]);
   const [versions, setVersions] = useState<DocumentVersion[]>([]);
+  const [approvals, setApprovals] = useState<ApprovalRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [rechecking, setRechecking] = useState(false);
 
@@ -44,6 +49,17 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
   const [pendingTransition, setPendingTransition] = useState<string | null>(null);
   const [actionError, setActionError] = useState('');
 
+  // Inline Comment Box
+  const [newCommentInput, setNewCommentInput] = useState('');
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  // Version Diff Modal
+  const [showDiffModal, setShowDiffModal] = useState(false);
+  const [diffV1, setDiffV1] = useState<number>(1);
+  const [diffV2, setDiffV2] = useState<number>(1);
+  const [diffData, setDiffData] = useState<any>(null);
+  const [loadingDiff, setLoadingDiff] = useState(false);
+
   // Tab
   const [activeTab, setActiveTab] = useState<'findings' | 'comments' | 'versions'>('findings');
 
@@ -54,22 +70,30 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
   const loadDocumentData = async () => {
     try {
       setLoading(true);
-      const [d, jobs, coms, vers] = await Promise.all([
+      const [d, jobs, coms, vers, apps] = await Promise.all([
         api.getDocument(documentId),
-        api.getDocumentReviewJobs(documentId),
+        api.getDocumentReviews(documentId),
         api.getComments(documentId),
         api.getDocumentVersions(documentId),
+        api.getDocumentApprovals(documentId).catch(() => []),
       ]);
       setDoc(d);
       setEditText(d.current_text);
       setComments(coms);
       setVersions(vers);
+      setApprovals(apps);
       if (jobs.length > 0) {
         setJob(jobs[0]); // latest job
       } else {
-        // Trigger review if none exists
         const newJob = await api.triggerReview(documentId);
         setJob(newJob);
+      }
+      if (vers.length >= 2) {
+        setDiffV1(vers[vers.length - 2].version_number);
+        setDiffV2(vers[vers.length - 1].version_number);
+      } else if (vers.length === 1) {
+        setDiffV1(vers[0].version_number);
+        setDiffV2(vers[0].version_number);
       }
     } catch (e) {
       console.error('Failed to load review details', e);
@@ -95,11 +119,10 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
   const handleSaveDraftEdits = async () => {
     if (!doc) return;
     try {
-      const updated = await api.updateDocumentText(doc.id, editText, changelogNote || 'Manual editorial revision');
+      const updated = await api.updateDocument(doc.id, editText, changelogNote || 'Manual editorial revision');
       setDoc(updated);
       setIsEditingDraft(false);
       setChangelogNote('');
-      // Automatically re-run compliance check after substantive manual edit
       const newJob = await api.triggerReview(doc.id);
       setJob(newJob);
       const vers = await api.getDocumentVersions(doc.id);
@@ -113,14 +136,14 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
     findingId: string,
     status: 'accepted' | 'edited' | 'dismissed' | 'escalated',
     notes?: string,
-    customText?: string
+    customText?: string,
+    reason?: string
   ) => {
     try {
-      await api.resolveFinding(findingId, status, notes, customText);
-      // Reload document and latest job
+      await api.resolveFinding(findingId, status, notes, customText, reason);
       const [d, jobs, vers] = await Promise.all([
         api.getDocument(documentId),
-        api.getDocumentReviewJobs(documentId),
+        api.getDocumentReviews(documentId),
         api.getDocumentVersions(documentId),
       ]);
       setDoc(d);
@@ -146,15 +169,45 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
       setShowCommentModal(false);
       setCommentText('');
       setPendingTransition(null);
-      // Reload data
-      const [d, coms] = await Promise.all([
+      const [d, coms, apps] = await Promise.all([
         api.getDocument(documentId),
         api.getComments(documentId),
+        api.getDocumentApprovals(documentId).catch(() => []),
       ]);
       setDoc(d);
       setComments(coms);
+      setApprovals(apps);
     } catch (err: any) {
-      setActionError(err.message || 'Action denied by policy');
+      setActionError(err.message || 'Action denied by governance policy');
+    }
+  };
+
+  const handleAddInlineComment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCommentInput.trim() || !doc) return;
+    setSubmittingComment(true);
+    try {
+      const added = await api.addComment(doc.id, newCommentInput.trim(), 'comment');
+      setComments([...comments, added]);
+      setNewCommentInput('');
+    } catch (err: any) {
+      alert(err.message || 'Failed to post comment');
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const handleFetchDiff = async () => {
+    if (!doc) return;
+    setLoadingDiff(true);
+    try {
+      const res = await api.getVersionDiff(doc.id, diffV1, diffV2);
+      setDiffData(res);
+      setShowDiffModal(true);
+    } catch (err: any) {
+      alert(err.message || 'Failed to generate version diff');
+    } finally {
+      setLoadingDiff(false);
     }
   };
 
@@ -163,7 +216,7 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
       <div className="p-8 flex items-center justify-center min-h-[400px]">
         <div className="flex items-center space-x-3 text-teal-400">
           <div className="w-5 h-5 border-2 border-teal-400 border-t-transparent rounded-full animate-spin" />
-          <span className="text-sm font-medium">Loading Document Workbench...</span>
+          <span className="text-sm font-medium">Loading Correction Studio...</span>
         </div>
       </div>
     );
@@ -175,8 +228,41 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
     score >= 70 ? 'text-amber-400 border-amber-800 bg-amber-950/40' :
     'text-rose-400 border-rose-800 bg-rose-950/40';
 
+  const isApproved = doc.status === 'approved' && doc.approved_version !== null;
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
+      {/* Version-Bound Approval Alert Banner */}
+      {isApproved ? (
+        <div className="p-4 bg-emerald-950/70 border border-emerald-500/50 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-center space-x-3">
+            <ShieldCheck className="w-6 h-6 text-emerald-400 shrink-0" />
+            <div>
+              <div className="text-sm font-bold text-white flex items-center space-x-2">
+                <span>Version-Bound Approval Active</span>
+                <span className="bg-emerald-900/60 text-emerald-300 font-mono text-xs px-2 py-0.5 rounded border border-emerald-700">
+                  v{doc.approved_version}
+                </span>
+              </div>
+              <div className="text-xs text-emerald-300/90 mt-0.5">
+                Approved by <strong>{doc.approved_by_name || 'Authorized Reviewer'}</strong> on{' '}
+                {doc.approved_at ? new Date(doc.approved_at).toLocaleString() : 'Recent'}.
+              </div>
+            </div>
+          </div>
+          <div className="text-[11px] text-emerald-400/80 bg-emerald-900/40 px-3 py-1.5 rounded-xl border border-emerald-800">
+            Editing will immediately invalidate this sign-off.
+          </div>
+        </div>
+      ) : doc.status === 'draft' && doc.current_version > 1 ? (
+        <div className="p-3 bg-amber-950/40 border border-amber-800/60 rounded-xl flex items-center space-x-2 text-xs text-amber-300">
+          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+          <span>
+            Working draft at <strong>v{doc.current_version}</strong>. Previous versions are preserved permanently in version history.
+          </span>
+        </div>
+      ) : null}
+
       {/* Top Header Bar */}
       <div className="bg-navy-950 p-4 rounded-2xl border border-navy-800 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-md">
         <div className="flex items-center space-x-3">
@@ -190,16 +276,20 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
             <div className="flex items-center space-x-2">
               <h1 className="text-lg font-bold text-white tracking-tight">{doc.title}</h1>
               <Badge variant="teal">v{doc.current_version}</Badge>
-              <Badge variant="neutral">{doc.status.toUpperCase()}</Badge>
+              <Badge variant={doc.status === 'approved' ? 'teal' : doc.status === 'in_review' ? 'warning' : 'neutral'}>
+                {doc.status.toUpperCase()}
+              </Badge>
             </div>
             <div className="text-xs text-slate-400 mt-0.5">
-              Author: <strong className="text-slate-300">{doc.creator_name}</strong> • Type: <span className="uppercase font-mono">{doc.content_type}</span>
+              Author: <strong className="text-slate-300">{doc.creator_name}</strong> • Channel:{' '}
+              <span className="uppercase font-mono text-slate-300">{doc.channel || 'Website'}</span> • Market:{' '}
+              <span className="font-mono text-slate-300">{doc.market || 'Global'}</span>
             </div>
           </div>
         </div>
 
         {/* Right Action Bar */}
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-2.5 flex-wrap gap-y-2">
           {/* Compliance Score Pill */}
           <div className={`px-3 py-1.5 rounded-xl border flex items-center space-x-2 font-mono text-xs font-bold ${scoreColor}`}>
             <span>COMPLIANCE:</span>
@@ -216,7 +306,18 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
             <span>Re-Check</span>
           </button>
 
-          {/* Workflow Action Buttons based on Role */}
+          {versions.length >= 2 && (
+            <button
+              onClick={handleFetchDiff}
+              disabled={loadingDiff}
+              className="flex items-center space-x-1.5 px-3 py-1.5 bg-navy-900 hover:bg-navy-800 text-slate-300 rounded-xl text-xs font-medium border border-navy-700 transition-colors"
+            >
+              <GitCompare className="w-3.5 h-3.5 text-teal-400" />
+              <span>Diff Versions</span>
+            </button>
+          )}
+
+          {/* Workflow Action Buttons */}
           {doc.status === 'draft' && (
             <button
               onClick={() => handleOpenTransitionModal('submitted')}
@@ -237,11 +338,11 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
             </button>
           )}
 
-          {doc.status === 'in_review' && (
+          {(doc.status === 'in_review' || doc.status === 'resubmitted') && (
             <div className="flex items-center space-x-2">
               <button
                 onClick={() => handleOpenTransitionModal('changes_requested')}
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-md transition-all"
+                className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-xl shadow-md transition-all"
               >
                 <AlertTriangle className="w-3.5 h-3.5" />
                 <span>Request Changes</span>
@@ -251,7 +352,7 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
                 className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all"
               >
                 <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Approve Draft</span>
+                <span>Sign & Approve v{doc.current_version}</span>
               </button>
             </div>
           )}
@@ -263,16 +364,6 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
             >
               <Send className="w-3.5 h-3.5" />
               <span>Resubmit Revised Draft</span>
-            </button>
-          )}
-
-          {doc.status === 'resubmitted' && (
-            <button
-              onClick={() => handleOpenTransitionModal('approved')}
-              className="flex items-center space-x-1.5 px-3.5 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Approve Revised Draft</span>
             </button>
           )}
         </div>
@@ -311,6 +402,12 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
 
             {isEditingDraft ? (
               <div className="space-y-3">
+                {isApproved && (
+                  <div className="p-2.5 bg-rose-950/60 border border-rose-800 rounded-lg text-xs text-rose-300 flex items-center space-x-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>Warning: Saving changes to this approved draft will revoke approval and create version v{doc.current_version + 1}.</span>
+                  </div>
+                )}
                 <textarea
                   rows={14}
                   value={editText}
@@ -333,12 +430,12 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
           </div>
 
           <div className="pt-4 mt-6 border-t border-navy-800 text-[11px] text-slate-500 flex items-center justify-between">
-            <span>Historical baseline: Preserved permanently in database.</span>
+            <span>Historical baseline: Preserved permanently in version ledger.</span>
             <span>Reviewed with snapshot of {Object.keys(job?.guideline_snapshot || {}).length} active guidelines.</span>
           </div>
         </div>
 
-        {/* Right Pane: Findings & Tabs (Col 5) */}
+        {/* Right Pane: Correction Studio Tabs (Col 5) */}
         <div className="lg:col-span-5 bg-navy-950 rounded-2xl border border-navy-800 p-6 shadow-md flex flex-col">
           {/* Tabs */}
           <div className="flex items-center space-x-2 border-b border-navy-800 pb-3 mb-4 text-xs">
@@ -396,7 +493,7 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
                     key={finding.id}
                     finding={finding}
                     onResolve={(status, notes, customText) =>
-                      handleResolveFinding(finding.id, status, notes, customText)
+                      handleResolveFinding(finding.id, status, notes, customText, notes)
                     }
                   />
                 ))
@@ -412,24 +509,44 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
 
           {/* Tab 2: Comments / Review Actions Log */}
           {activeTab === 'comments' && (
-            <div className="space-y-3 overflow-y-auto max-h-[600px]">
-              {comments.map((c) => (
-                <div key={c.id} className="p-3 bg-navy-900/70 rounded-xl border border-navy-800 text-xs">
-                  <div className="flex items-center justify-between text-slate-400 mb-1">
-                    <div className="flex items-center space-x-1.5">
-                      <strong className="text-slate-200">{c.user_name}</strong>
-                      <Badge variant="neutral">{c.user_role}</Badge>
+            <div className="flex flex-col h-full justify-between space-y-4">
+              <div className="space-y-3 overflow-y-auto max-h-[460px]">
+                {comments.map((c) => (
+                  <div key={c.id} className="p-3 bg-navy-900/70 rounded-xl border border-navy-800 text-xs">
+                    <div className="flex items-center justify-between text-slate-400 mb-1">
+                      <div className="flex items-center space-x-1.5">
+                        <strong className="text-slate-200">{c.user_name}</strong>
+                        <Badge variant="neutral">{c.user_role}</Badge>
+                      </div>
+                      <span className="text-[10px] text-slate-500">
+                        {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
                     </div>
-                    <span className="text-[10px] text-slate-500">
-                      {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
+                    <div className="text-slate-300 font-medium">{c.comment_text}</div>
                   </div>
-                  <div className="text-slate-300 font-medium">{c.comment_text}</div>
-                </div>
-              ))}
-              {comments.length === 0 && (
-                <div className="text-xs text-slate-500 py-6 text-center">No comments or decisions logged yet.</div>
-              )}
+                ))}
+                {comments.length === 0 && (
+                  <div className="text-xs text-slate-500 py-6 text-center">No comments or decisions logged yet.</div>
+                )}
+              </div>
+
+              {/* Inline Comment Input */}
+              <form onSubmit={handleAddInlineComment} className="pt-3 border-t border-navy-800 flex items-center space-x-2">
+                <input
+                  type="text"
+                  placeholder="Post reviewer note or inquiry..."
+                  value={newCommentInput}
+                  onChange={(e) => setNewCommentInput(e.target.value)}
+                  className="flex-1 bg-navy-900 border border-navy-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-teal-400"
+                />
+                <button
+                  type="submit"
+                  disabled={submittingComment || !newCommentInput.trim()}
+                  className="p-2 bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-slate-950 rounded-xl transition-all"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                </button>
+              </form>
             </div>
           )}
 
@@ -439,7 +556,14 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
               {versions.map((v) => (
                 <div key={v.id} className="p-3 bg-navy-900/60 rounded-xl border border-navy-800 text-xs">
                   <div className="flex items-center justify-between font-semibold text-slate-200 mb-1">
-                    <span>Version v{v.version_number}</span>
+                    <span className="flex items-center space-x-1.5">
+                      <span>Version v{v.version_number}</span>
+                      {doc.approved_version === v.version_number && (
+                        <span className="bg-emerald-950 text-emerald-300 border border-emerald-800 text-[9px] px-1.5 py-0.2 rounded font-bold">
+                          APPROVED
+                        </span>
+                      )}
+                    </span>
                     <span className="text-[10px] text-slate-500 font-mono">
                       {new Date(v.created_at).toLocaleString()}
                     </span>
@@ -454,6 +578,96 @@ export const ReviewDetailPage: React.FC<ReviewDetailPageProps> = ({ documentId, 
           )}
         </div>
       </div>
+
+      {/* Version Diff Modal */}
+      {showDiffModal && diffData && (
+        <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-navy-950 border border-navy-700 rounded-2xl w-full max-w-4xl p-6 shadow-2xl flex flex-col max-h-[85vh]">
+            <div className="flex items-center justify-between border-b border-navy-800 pb-3 mb-4">
+              <div className="flex items-center space-x-2">
+                <GitCompare className="w-5 h-5 text-teal-400" />
+                <h2 className="text-base font-bold text-white">
+                  Version Comparison: v{diffData.v1} → v{diffData.v2}
+                </h2>
+                <Badge variant="teal">{diffData.total_changes} change hunk(s)</Badge>
+              </div>
+              <button onClick={() => setShowDiffModal(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <div className="flex items-center space-x-3 mb-4 text-xs">
+              <label className="text-slate-400 font-semibold">Compare:</label>
+              <select
+                value={diffV1}
+                onChange={(e) => setDiffV1(Number(e.target.value))}
+                className="bg-navy-900 text-slate-200 border border-navy-700 rounded-lg px-2 py-1"
+              >
+                {versions.map((v) => (
+                  <option key={v.version_number} value={v.version_number}>
+                    v{v.version_number} ({v.changelog ? v.changelog.slice(0, 25) : 'Snapshot'})
+                  </option>
+                ))}
+              </select>
+              <span className="text-slate-500">with</span>
+              <select
+                value={diffV2}
+                onChange={(e) => setDiffV2(Number(e.target.value))}
+                className="bg-navy-900 text-slate-200 border border-navy-700 rounded-lg px-2 py-1"
+              >
+                {versions.map((v) => (
+                  <option key={v.version_number} value={v.version_number}>
+                    v{v.version_number} ({v.changelog ? v.changelog.slice(0, 25) : 'Snapshot'})
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleFetchDiff}
+                className="px-3 py-1 bg-teal-500 text-slate-950 font-bold rounded-lg hover:bg-teal-400"
+              >
+                Update Diff
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto bg-navy-900/80 rounded-xl p-4 border border-navy-800 font-mono text-xs leading-relaxed space-y-2">
+              {diffData.hunks && diffData.hunks.length > 0 ? (
+                diffData.hunks.map((h: any, i: number) => {
+                  if (h.type === 'insert') {
+                    return (
+                      <div key={i} className="bg-emerald-950/40 text-emerald-300 p-2 rounded border border-emerald-800/60">
+                        + {h.text}
+                      </div>
+                    );
+                  }
+                  if (h.type === 'delete') {
+                    return (
+                      <div key={i} className="bg-rose-950/40 text-rose-300 p-2 rounded border border-rose-800/60 line-through opacity-80">
+                        - {h.text}
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={i} className="text-slate-400 p-1">
+                      {h.text}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center text-slate-400 py-8">
+                  Both versions contain identical text.
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-4 mt-4 border-t border-navy-800">
+              <button
+                onClick={() => setShowDiffModal(false)}
+                className="px-4 py-2 bg-navy-800 hover:bg-navy-700 text-slate-200 font-semibold text-xs rounded-xl"
+              >
+                Close Diff
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Transition / Decision Modal */}
       {showCommentModal && (

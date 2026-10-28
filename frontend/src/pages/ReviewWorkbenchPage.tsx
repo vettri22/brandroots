@@ -107,6 +107,7 @@ export const ReviewWorkbenchPage: React.FC<ReviewWorkbenchPageProps> = ({ onOpen
       resubmitted: { variant: 'info', label: 'Resubmitted' },
       approved: { variant: 'success', label: 'Approved' },
       rejected: { variant: 'critical', label: 'Rejected' },
+      archived: { variant: 'neutral', label: 'Archived' },
     };
     const s = map[status] || { variant: 'neutral', label: status };
     return <Badge variant={s.variant}>{s.label}</Badge>;

@@ -4,11 +4,14 @@ import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { DashboardPage } from './pages/DashboardPage';
 import { ReviewWorkbenchPage } from './pages/ReviewWorkbenchPage';
-import { ReviewDetailPage } from './pages/ReviewDetailPage';
-import { GuidelineDebuggerPage } from './pages/GuidelineDebuggerPage';
+import { ReviewQueuePage } from './pages/ReviewQueuePage';
+import { EvidenceLedgerPage } from './pages/EvidenceLedgerPage';
+import { GuidelineClarityRadarPage } from './pages/GuidelineClarityRadarPage';
 import { BrandKnowledgePage } from './pages/BrandKnowledgePage';
+import { AssetsPage } from './pages/AssetsPage';
+import { TeamPage } from './pages/TeamPage';
 import { AuditLogPage } from './pages/AuditLogPage';
-import { DemoWalkthroughPage } from './pages/DemoWalkthroughPage';
+import { ReviewDetailPage } from './pages/ReviewDetailPage';
 
 export const MainLayout: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<string>('dashboard');
@@ -20,16 +23,6 @@ export const MainLayout: React.FC = () => {
 
   const handleBackToWorkbench = () => {
     setSelectedDocId(null);
-    setCurrentTab('workbench');
-  };
-
-  const handleNavigateFromDemo = (tab: string, docId?: string) => {
-    if (docId) {
-      setSelectedDocId(docId);
-    } else {
-      setSelectedDocId(null);
-    }
-    setCurrentTab(tab);
   };
 
   return (
@@ -55,10 +48,13 @@ export const MainLayout: React.FC = () => {
             <>
               {currentTab === 'dashboard' && <DashboardPage onNavigate={(tab) => setCurrentTab(tab)} />}
               {currentTab === 'workbench' && <ReviewWorkbenchPage onOpenDocument={handleOpenDocument} />}
-              {currentTab === 'debugger' && <GuidelineDebuggerPage />}
+              {currentTab === 'queue' && <ReviewQueuePage onOpenDocument={handleOpenDocument} />}
+              {currentTab === 'evidence' && <EvidenceLedgerPage />}
+              {currentTab === 'radar' && <GuidelineClarityRadarPage />}
               {currentTab === 'brand' && <BrandKnowledgePage />}
+              {currentTab === 'assets' && <AssetsPage />}
+              {currentTab === 'team' && <TeamPage />}
               {currentTab === 'audit' && <AuditLogPage />}
-              {currentTab === 'demo' && <DemoWalkthroughPage onNavigate={handleNavigateFromDemo} />}
             </>
           )}
         </main>

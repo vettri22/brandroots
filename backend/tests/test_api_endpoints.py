@@ -11,6 +11,12 @@ def test_dashboard_metrics_endpoint(client):
     assert "top_recurring_violations" in data
     assert data["data_mode"] == "seeded_demonstration_and_live"
 
+def test_root_serves_spa_html(client):
+    res = client.get("/")
+    assert res.status_code == 200
+    assert "text/html" in res.headers.get("content-type", "")
+    assert "<div id=\"root\">" in res.text
+
 def test_audit_logs_endpoint(client):
     res = client.get("/api/v1/dashboard/audit-logs")
     assert res.status_code == 200

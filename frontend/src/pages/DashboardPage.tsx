@@ -2,16 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
 import { DashboardMetrics, AuditEvent } from '../types';
 import { Badge } from '../components/Badge';
+import { useAuth } from '../context/AuthContext';
 import {
   FileText,
   AlertCircle,
   CheckCircle,
-  BugPlay,
+  Radar,
   TrendingUp,
   ShieldAlert,
   Clock,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  ShieldCheck,
+  Scale,
+  FileCheck2,
 } from 'lucide-react';
 
 interface DashboardPageProps {
@@ -19,23 +23,24 @@ interface DashboardPageProps {
 }
 
 export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
+  const { user, activeBrand } = useAuth();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [recentLogs, setRecentLogs] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [activeBrand]);
 
   const loadData = async () => {
     try {
       setLoading(true);
       const [m, logs] = await Promise.all([
-        api.getDashboardMetrics(),
-        api.getAuditLogs()
+        api.getDashboardMetrics(activeBrand?.id),
+        api.getAuditLogs(10)
       ]);
       setMetrics(m);
-      setRecentLogs(logs.slice(0, 8));
+      setRecentLogs(logs);
     } catch (e) {
       console.error('Failed to load dashboard data', e);
     } finally {
@@ -56,31 +61,38 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
 
   return (
     <div className="p-8 space-y-8 max-w-7xl mx-auto">
-      {/* Top Banner: Verification Notice */}
-      <div className="bg-navy-900/90 border border-navy-700/80 rounded-2xl p-5 shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      {/* Top Banner */}
+      <div className="bg-navy-950 border border-navy-800 rounded-2xl p-6 shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center space-x-2">
-            <h1 className="text-xl font-bold text-white tracking-tight">BrandRoots Governance Intelligence</h1>
-            <Badge variant="teal">Round 2 Build Verified</Badge>
+          <div className="flex items-center space-x-2.5">
+            <h1 className="text-2xl font-black text-white tracking-tight">Proofline Governance Hub</h1>
+            <Badge variant="teal">ENTERPRISE PLATFORM</Badge>
           </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Active brand: <strong className="text-slate-200">NovusBio Health</strong> • Hybrid Compliance Engine • Persistent Versioning • Team <span className="font-mono text-teal-400">vettriselvam190</span>
+          <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
+            Active brand: <strong className="text-slate-200">{activeBrand?.name || 'NovusBio Health'}</strong> • Hybrid Compliance Engine • Traceable Evidence Ledger • Version-Bound Sign-offs
           </p>
         </div>
         <div className="flex items-center space-x-3">
           <button
-            onClick={() => onNavigate('workbench')}
-            className="flex items-center space-x-2 px-4 py-2 bg-navy-800 hover:bg-navy-700 text-slate-200 rounded-xl text-xs font-semibold border border-navy-700 transition-colors"
+            onClick={() => onNavigate('queue')}
+            className="flex items-center space-x-2 px-4 py-2 bg-navy-900 hover:bg-navy-800 text-slate-200 rounded-xl text-xs font-semibold border border-navy-700 transition-colors"
           >
-            <FileText className="w-4 h-4 text-teal-400" />
-            <span>Open Workbench</span>
+            <FileCheck2 className="w-4 h-4 text-teal-400" />
+            <span>Review Queue</span>
           </button>
           <button
-            onClick={() => onNavigate('debugger')}
+            onClick={() => onNavigate('evidence')}
+            className="flex items-center space-x-2 px-4 py-2 bg-navy-900 hover:bg-navy-800 text-slate-200 rounded-xl text-xs font-semibold border border-navy-700 transition-colors"
+          >
+            <Scale className="w-4 h-4 text-cyan-400" />
+            <span>Evidence Ledger</span>
+          </button>
+          <button
+            onClick={() => onNavigate('radar')}
             className="flex items-center space-x-2 px-4 py-2 bg-teal-500 hover:bg-teal-400 text-slate-950 rounded-xl text-xs font-bold shadow-lg shadow-teal-500/20 transition-all"
           >
-            <BugPlay className="w-4 h-4" />
-            <span>Inspect Guideline Debugger</span>
+            <Radar className="w-4 h-4" />
+            <span>Clarity Radar</span>
           </button>
         </div>
       </div>
@@ -113,35 +125,35 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
             {metrics?.approved_documents ?? 0}
           </div>
           <div className="text-[11px] text-slate-500 mt-2">
-            Formally cleared by human reviewer
+            Exact version-bound sign-offs
           </div>
         </div>
 
-        {/* Card 3: Guideline Ambiguity Candidates */}
+        {/* Card 3: Guideline Ambiguity Signals */}
         <div className="bg-navy-950 p-5 rounded-2xl border border-teal-800/40 shadow-md bg-gradient-to-br from-navy-950 to-teal-950/20">
           <div className="flex items-center justify-between text-teal-400 text-xs font-medium mb-3">
-            <span>Guideline Ambiguity Candidates</span>
-            <BugPlay className="w-4 h-4 text-teal-400" />
+            <span>Clarity Radar Signals</span>
+            <Radar className="w-4 h-4 text-teal-400" />
           </div>
           <div className="text-3xl font-black text-teal-300 tracking-tight">
             {metrics?.guideline_ambiguity_candidates ?? 0}
           </div>
           <div className="text-[11px] text-teal-400/70 mt-2 flex items-center space-x-1">
-            <span>Ready for Brand Owner in Debugger</span>
+            <span>Recurring friction clusters</span>
           </div>
         </div>
 
         {/* Card 4: Active Knowledge Base */}
         <div className="bg-navy-950 p-5 rounded-2xl border border-navy-800 shadow-md">
           <div className="flex items-center justify-between text-slate-400 text-xs font-medium mb-3">
-            <span>Active Knowledge Base</span>
+            <span>Evidence & Rule Base</span>
             <Sparkles className="w-4 h-4 text-cyan-400" />
           </div>
           <div className="text-3xl font-black text-white tracking-tight">
             {(metrics?.active_guidelines_count ?? 0) + (metrics?.active_facts_count ?? 0)}
           </div>
           <div className="text-[11px] text-slate-500 mt-2">
-            {metrics?.active_guidelines_count} Rules • {metrics?.active_facts_count} Verified Facts
+            {metrics?.active_guidelines_count} Rules • {metrics?.active_facts_count} Verified Evidence
           </div>
         </div>
       </div>
@@ -152,11 +164,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
         <div className="bg-navy-950 p-6 rounded-2xl border border-navy-800 shadow-md">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-bold text-white tracking-tight">Compliance Findings by Severity</h2>
-            <span className="text-xs text-slate-500">Live records</span>
+            <span className="text-xs text-slate-500">Live database audit</span>
           </div>
 
           <div className="space-y-4">
-            {/* Critical */}
             <div>
               <div className="flex justify-between text-xs font-medium mb-1">
                 <span className="text-rose-300 flex items-center space-x-1.5">
@@ -173,12 +184,11 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               </div>
             </div>
 
-            {/* Warning */}
             <div>
               <div className="flex justify-between text-xs font-medium mb-1">
                 <span className="text-amber-300 flex items-center space-x-1.5">
                   <span className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span>Warnings (Tone & Required disclaimers)</span>
+                  <span>Warnings (Tone, formatting & mandatory disclaimers)</span>
                 </span>
                 <span className="font-mono text-white font-bold">{metrics?.findings_by_severity.warning ?? 0}</span>
               </div>
@@ -190,7 +200,6 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
               </div>
             </div>
 
-            {/* Suggestion */}
             <div>
               <div className="flex justify-between text-xs font-medium mb-1">
                 <span className="text-indigo-300 flex items-center space-x-1.5">
@@ -209,18 +218,18 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        {/* Top Recurring Violations — Feeding Guideline Debugger */}
+        {/* Top Recurring Violations */}
         <div className="bg-navy-950 p-6 rounded-2xl border border-navy-800 shadow-md">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-bold text-white tracking-tight flex items-center space-x-2">
               <ShieldAlert className="w-4 h-4 text-teal-400" />
-              <span>Top Recurring Violations (Debugger Signals)</span>
+              <span>Top Recurring Violations (Radar Telemetry)</span>
             </h2>
             <button
-              onClick={() => onNavigate('debugger')}
+              onClick={() => onNavigate('radar')}
               className="text-xs text-teal-400 hover:text-teal-300 flex items-center space-x-1 font-semibold"
             >
-              <span>View All</span>
+              <span>View Radar</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -244,10 +253,10 @@ export const DashboardPage: React.FC<DashboardPageProps> = ({ onNavigate }) => {
                       {v.count} occurrences
                     </span>
                     <button
-                      onClick={() => onNavigate('debugger')}
+                      onClick={() => onNavigate('radar')}
                       className="text-[11px] px-2 py-1 bg-navy-800 hover:bg-navy-700 text-slate-300 rounded transition-colors"
                     >
-                      Debug
+                      Investigate
                     </button>
                   </div>
                 </div>

@@ -1,10 +1,14 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 class GuidelineInsightResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     workspace_id: str
+    organization_id: Optional[str] = None
+    brand_id: Optional[str] = None
     title: str
     rule_id: Optional[str] = None
     suspected_root_cause: str
@@ -15,20 +19,21 @@ class GuidelineInsightResponse(BaseModel):
     evidence_summary: str
     suggested_action: str
     hypothesis_status: str
+    status_marking: str = "under_investigation"
     decision_notes: Optional[str] = None
     reviewed_by: Optional[str] = None
     reviewed_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
-
 class HypothesisActionRequest(BaseModel):
     action: str  # confirm, dismiss
+    status_marking: Optional[str] = None  # under_investigation, needs_clarification, updated, resolved, not_an_issue
     decision_notes: Optional[str] = None
 
 class ProposedClarificationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: str
     insight_id: Optional[str] = None
     target_rule_id: str
@@ -44,10 +49,7 @@ class ProposedClarificationResponse(BaseModel):
     reviewed_at: Optional[datetime] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 class ClarificationApprovalRequest(BaseModel):
     decision: str  # approve, reject
-    edited_rule_text: Optional[str] = None  # Allow Brand Owner to customize before accepting
+    edited_rule_text: Optional[str] = None
     notes: Optional[str] = None
