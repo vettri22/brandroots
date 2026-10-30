@@ -46,17 +46,20 @@ export const Navbar: React.FC<NavbarProps> = ({ onRefresh }) => {
       <div className="flex items-center space-x-6">
         <div className="flex items-center space-x-2.5">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-teal-600 flex items-center justify-center shadow-lg shadow-teal-500/20 text-slate-950 font-black text-sm tracking-wider">
-            PL
+            BR
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="font-extrabold text-white text-base tracking-tight">Proofline</span>
+              <span className="font-extrabold text-white text-base tracking-tight">BrandRoots</span>
               <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-teal-950 text-teal-300 border border-teal-700/60 font-semibold">
-                ENTERPRISE
+                v3.0 Final
+              </span>
+              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-navy-800 text-slate-300 border border-navy-700 font-semibold hidden lg:inline">
+                Team vettriselvam190
               </span>
             </div>
             <div className="text-[11px] text-slate-400">
-              Brand Governance Platform
+              Governance Intelligence & Proofline Engine
             </div>
           </div>
         </div>

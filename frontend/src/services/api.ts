@@ -598,6 +598,12 @@ export const api = {
     return res.json();
   },
 
+  async getDebuggerBenchmark(): Promise<any> {
+    const res = await fetch(`${API_BASE}/debugger/benchmark`, { headers: getAuthHeaders() });
+    if (!res.ok) throw new Error('Failed to fetch debugger benchmark metrics');
+    return res.json();
+  },
+
   // --- Notifications ---
   async listNotifications(unreadOnly: boolean = false): Promise<NotificationItem[]> {
     const res = await fetch(`${API_BASE}/notifications?unread_only=${unreadOnly}`, { headers: getAuthHeaders() });

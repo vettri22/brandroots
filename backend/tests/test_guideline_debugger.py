@@ -67,3 +67,16 @@ def test_brand_owner_explicit_clarification_approval(db_session):
         if "RULE-CLAIM-01" in job.guideline_snapshot:
             # Snapshot preserves the historical version recorded at review time
             assert job.guideline_snapshot["RULE-CLAIM-01"] == initial_version
+
+def test_debugger_benchmark_evaluation_metrics():
+    from app.services.debugger_evaluator import run_debugger_benchmark
+    res = run_debugger_benchmark()
+    assert res["status"] == "success"
+    assert res["dataset_size"] == 52
+    metrics = res["metrics"]
+    assert metrics["precision"] >= 0.85
+    assert metrics["recall"] >= 0.85
+    assert metrics["f1_score"] >= 0.85
+    assert metrics["violation_rate_reduction_percent"] >= 70.0
+    assert len(res["clusters_evaluated"]) == 4
+    assert len(res["sample_evaluations"]) > 0

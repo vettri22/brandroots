@@ -16,7 +16,17 @@ from app.services.guideline_debugger import (
 )
 from app.services.audit_logger import log_audit_event
 
+from app.services.debugger_evaluator import run_debugger_benchmark
+
 router = APIRouter(prefix="/debugger", tags=["Guideline Debugger"])
+
+@router.get("/benchmark")
+def get_debugger_benchmark():
+    """
+    Returns empirical Precision, Recall, F1 score, Confusion Matrix,
+    and closed-loop violation reduction telemetry against a curated dataset of 52 labeled drafts.
+    """
+    return run_debugger_benchmark()
 
 @router.post("/cluster", response_model=List[GuidelineInsightResponse])
 def trigger_clustering(

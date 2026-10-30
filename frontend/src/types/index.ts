@@ -166,6 +166,8 @@ export interface ImageComplianceResult {
   contrast_status: string;
   alt_text_status: string;
   alt_text_valid?: boolean;
+  dominant_colors?: string[];
+  palette_compliance?: boolean;
   findings: Array<Record<string, any>>;
   violations?: string[];
   details: string;

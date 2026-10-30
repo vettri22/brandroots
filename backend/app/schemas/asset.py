@@ -15,10 +15,16 @@ class ImageComplianceCheckResponse(BaseModel):
     height: int
     file_size_bytes: int
     sha256_hash: str
+    matching_asset_id: Optional[str] = None
+    is_exact_sha256_match: bool = False
     exact_match_asset: Optional[Dict[str, Any]] = None
     similarity_match: Optional[Dict[str, Any]] = None
     contrast_ratio: Optional[float] = None
     contrast_status: str  # pass, fail, not_measurable
-    alt_text_status: str  # pass, missing, not_required
+    alt_text_status: str  # pass, missing, low_quality, not_required
+    alt_text_valid: bool = False
+    dominant_colors: List[str] = []
+    palette_compliance: Optional[Dict[str, Any]] = None
     findings: List[Dict[str, Any]] = []
+    violations: List[str] = []
     details: str

@@ -275,6 +275,26 @@ export const AssetsPage: React.FC = () => {
                       {verifyResult.alt_text_valid ? 'Provided & Valid' : 'Missing or Inadequate'}
                     </strong>
                   </div>
+                  <div className="bg-navy-950 p-2.5 rounded-lg border border-navy-850 col-span-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-slate-500">Extracted Dominant Palette</span>
+                      <span className={`text-[11px] font-semibold ${verifyResult.palette_compliance ? 'text-emerald-400' : 'text-amber-400'}`}>
+                        {verifyResult.palette_compliance ? 'Matches Brand Palette' : 'Off-Palette Warning'}
+                      </span>
+                    </div>
+                    {verifyResult.dominant_colors && verifyResult.dominant_colors.length > 0 ? (
+                      <div className="flex items-center space-x-2 pt-1">
+                        {verifyResult.dominant_colors.map((c, idx) => (
+                          <div key={idx} className="flex items-center space-x-1.5 bg-navy-900 px-2 py-1 rounded border border-navy-800">
+                            <span className="w-3.5 h-3.5 rounded shadow-sm border border-white/20 shrink-0" style={{ backgroundColor: c }} />
+                            <span className="font-mono text-[10px] text-slate-300">{c}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-slate-500 text-[11px]">No dominant colors extracted</span>
+                    )}
+                  </div>
                 </div>
 
                 {verifyResult.violations.length > 0 && (
