@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: proofline
+    name: brandroots
     runtime: python
     region: oregon
     plan: free
