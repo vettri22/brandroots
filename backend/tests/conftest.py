@@ -7,6 +7,7 @@ from sqlalchemy.orm import sessionmaker
 # Use a test database
 os.environ["DATABASE_URL"] = "sqlite:///./test_brandroots.db"
 os.environ["DEMO_MODE"] = "true"
+os.environ["TESTING"] = "true"
 
 from app.database import Base, get_db
 from app.main import app
@@ -33,21 +34,18 @@ def setup_test_db():
 
 @pytest.fixture
 def db_session():
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = TestingSessionLocal(bind=connection)
+    session = TestingSessionLocal()
     yield session
     session.close()
-    transaction.rollback()
-    connection.close()
 
 @pytest.fixture
-def client(db_session):
+def client():
     def override_get_db():
+        db = TestingSessionLocal()
         try:
-            yield db_session
+            yield db
         finally:
-            pass
+            db.close()
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as c:
         yield c

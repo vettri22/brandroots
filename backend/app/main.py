@@ -44,25 +44,26 @@ async def render_keep_alive_loop(external_url: str):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Modern lifespan handler: initialize and seed demo brand if unseeded
-    db = SessionLocal()
-    try:
-        from app.models.brand import BrandGuideline
-        rule_count = db.query(BrandGuideline).count()
-        if rule_count == 0:
-            print("[Proofline] Fresh database detected. Initializing demonstration brand environment...")
-            seed_demo_data(db)
-            print("[Proofline] Demonstration brand environment initialized.")
-    except Exception as e:
-        print(f"[Proofline] Startup notice: {e}")
-    finally:
-        db.close()
-
-    # Start automatic anti-sleep pinger if running on Render or custom URL is configured
+    # Only run DB check & background pinger if not in test suite
     ping_task = None
-    render_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("APP_URL") or os.environ.get("KEEP_ALIVE_URL")
-    if render_url:
-        ping_task = asyncio.create_task(render_keep_alive_loop(render_url))
+    if os.environ.get("TESTING") != "true":
+        db = SessionLocal()
+        try:
+            from app.models.brand import BrandGuideline
+            rule_count = db.query(BrandGuideline).count()
+            if rule_count == 0:
+                print("[Proofline] Fresh database detected. Initializing demonstration brand environment...")
+                seed_demo_data(db)
+                print("[Proofline] Demonstration brand environment initialized.")
+        except Exception as e:
+            print(f"[Proofline] Startup notice: {e}")
+        finally:
+            db.close()
+
+        # Start automatic anti-sleep pinger if running on Render or custom URL is configured
+        render_url = os.environ.get("RENDER_EXTERNAL_URL") or os.environ.get("APP_URL") or os.environ.get("KEEP_ALIVE_URL")
+        if render_url:
+            ping_task = asyncio.create_task(render_keep_alive_loop(render_url))
 
     yield
 
@@ -124,18 +125,16 @@ if os.path.isdir(FRONTEND_DIST_DIR):
             return FileResponse(index_file)
         return {"app": "Proofline", "status": "operational", "api_docs": "/docs"}
 
-    @app.get("/{full_path:path}")
-    def serve_spa_fallback(full_path: str):
-        # Don't intercept API or docs routes
-        if full_path.startswith("api/") or full_path in ("docs", "redoc", "openapi.json", "health"):
-            return None
-        candidate = os.path.join(FRONTEND_DIST_DIR, full_path)
-        if full_path and os.path.isfile(candidate):
-            return FileResponse(candidate)
-        index_file = os.path.join(FRONTEND_DIST_DIR, "index.html")
-        if os.path.isfile(index_file):
-            return FileResponse(index_file)
-        return {"app": "Proofline", "status": "operational", "api_docs": "/docs"}
+    from fastapi.responses import JSONResponse
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+
+    @app.exception_handler(StarletteHTTPException)
+    async def spa_exception_handler(request, exc):
+        if exc.status_code == 404 and not request.url.path.startswith("/api/"):
+            index_file = os.path.join(FRONTEND_DIST_DIR, "index.html")
+            if os.path.isfile(index_file):
+                return FileResponse(index_file)
+        return JSONResponse({"detail": exc.detail}, status_code=exc.status_code)
 else:
     @app.get("/")
     def root():
